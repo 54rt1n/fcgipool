@@ -22,6 +22,7 @@ import (
         "strings"
         "time"
         "sync"
+        "bytes"
         //"runtime"
 )
 
@@ -162,6 +163,15 @@ var errCloseConn = errors.New("fcgi: connection should be closed")
 
 var emptyBody = ioutil.NopCloser(strings.NewReader(""))
 
+type bodyBuilder struct {
+  io.Reader
+}
+
+func (self bodyBuilder) Close() error {
+  // this is only here to make it a readcloser...
+  return nil
+}
+
 func (c *child) handleRecord(rec *record) error {
         req, ok := c.requests[rec.h.Id]
         if !ok && rec.h.Type != typeBeginRequest && rec.h.Type != typeGetValues {
@@ -198,24 +208,27 @@ func (c *child) handleRecord(rec *record) error {
                 return nil
         case typeStdin:
                 content := rec.content()
-                if req.pw == nil {
-                        var body io.ReadCloser
-                        if len(content) > 0 {
-                                // body could be an io.LimitReader, but it shouldn't matter
-                                // as long as both sides are behaving.
-                                body, req.pw = io.Pipe()
-                        } else {
-                                body = emptyBody
-                        }
-                        c.serveRequest(req, body)
-                }
-                if len(content) > 0 {
-                        // TODO(eds): This blocks until the handler reads from the pipe.
-                        // If the handler takes a long time, it might be a problem.
-                        req.pw.Write(content)
-                } else if req.pw != nil {
-                        req.pw.Close()
-                }
+                // All of this is now in the same thread, so blocking will cauase bad things
+                body := bodyBuilder{ Reader: bytes.NewReader(content) }
+                c.serveRequest( req, body )
+                //if req.pw == nil {
+                //        var body io.ReadCloser
+                //        if len(content) > 0 {
+                //                // body could be an io.LimitReader, but it shouldn't matter
+                //                // as long as both sides are behaving.
+                //                body, req.pw = io.Pipe()
+                //        } else {
+                //                body = emptyBody
+                //        }
+                //        c.serveRequest(req, body)
+                //}
+                //if len(content) > 0 {
+                //        // TODO(eds): This blocks until the handler reads from the pipe.
+                //        // If the handler takes a long time, it might be a problem.
+                //        req.pw.Write(content)
+                //} else if req.pw != nil {
+                //        req.pw.Close()
+                //}
                 return nil
         case typeGetValues:
                 values := map[string]string{"FCGI_MPXS_CONNS": "1"}
