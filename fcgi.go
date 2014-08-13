@@ -5,7 +5,7 @@
 // Package fcgi implements the FastCGI protocol.
 // Currently only the responder role is supported.
 // The protocol is defined at http://www.fastcgi.com/drupal/node/6?q=node/22
-package fixedfcgipool
+package fcgipool
 
 // This file defines the raw protocol and some utilities used by the child and
 // the host.
